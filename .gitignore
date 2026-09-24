@@ -2,5 +2,20 @@
 .vscode/
 *.o
 *.elf
-*.bin
 .DS_Store
+
+# Python / training
+llm-training/venv/
+__pycache__/
+*.pyc
+
+# generated data and checkpoints (reproducible via scripts, not source)
+llm-training/data/
+llm-training/out/
+llm-training/vendor/llama2c/data
+llm-training/vendor/llama2c/out
+
+# compiled llama2.c C binaries
+llm-training/vendor/llama2c/run
+llm-training/vendor/llama2c/runq
+llm-training/vendor/llama2c/testc
