@@ -1,0 +1,18 @@
+# Custom partition table for the ESP32-S3 N16R8 (16MB flash / 8MB PSRAM).
+#
+# Standard nvs/otadata/two OTA app slots, plus two custom raw DATA
+# partitions for the llama2.c model weights and tokenizer, loaded via
+# esp_partition_mmap() (zero-copy, direct flash read) rather than a
+# filesystem — see src/llm_infer.c build_transformer_esp32().
+#
+# Name,      Type, SubType,  Offset,   Size,     Flags
+nvs,         data, nvs,      0x9000,   0x5000,
+otadata,     data, ota,      0xE000,   0x2000,
+app0,        app,  ota_0,    0x10000,  0x180000,
+app1,        app,  ota_1,    0x190000, 0x180000,
+model,       data, 0x40,     0x310000, 0x200000,
+tokenizer,   data, 0x41,     0x510000, 0x10000,
+# Total used: 0x520000 (~5.4MB) of 16MB (0x1000000) — plenty of headroom.
+# The "model" partition is sized 2MB; current smoke-test model is ~280KB,
+# the planned Phase 4 "real" model targets up to ~4-8MB — resize this
+# partition (and re-check the total against 16MB) once that model exists.
