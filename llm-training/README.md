@@ -78,6 +78,41 @@ make run runq   # or: gcc -O3 -o run run.c -lm && gcc -O3 -o runq runq.c -lm
 ./runq ../out/smoke/model_q8.bin -z data/tok512.bin -t 0.0 -n 80
 ```
 
+## Conversational format (2026-09-24): pivoted from stories to dialogue
+
+Stories/next-token-continuation was never the goal — the plan needs
+short reactive EmoBot dialogue, not narrated stories. Changed:
+
+- **`data_source/personality_seed.txt`** — an editable, human-readable draft
+  of `User:`/`Bot:` exchanges grouped by trigger category (greeting,
+  mood_sad, mood_happy, life_event, climate_query, energy_alert,
+  kid_called_home, idle_ambient). **This is a starting draft for the user to
+  revise**, not a finished dataset — currently only 29 exchanges, nowhere
+  near enough for real training.
+- **`scripts/build_conversational_corpus.py`** — parses that seed file into
+  `data/corpus.txt`, one exchange per line in the form
+  `User: <trigger>\nBot: <response>` (a **literal two-character `\n`
+  marker**, not an actual newline — needed because the rest of the pipeline
+  treats one file-line as one training example; an actual newline would
+  split a User/Bot pair across two lines and lose the pairing). The model
+  learns this marker as part of its vocabulary; firmware prompts/parses
+  using the same convention at inference time.
+- Ran the same `stories260K` architecture through this new format (150
+  steps, same tiny scale as the Phase 1 smoke test) to confirm the pipeline
+  and the delimiter format work together: training loss dropped normally,
+  export/quantization produced the expected ~278KB file, and prompting
+  `run` with `-i 'User: I feel sad today.\nBot:'` correctly preserved the
+  format through tokenization and generation. Output degenerates quickly
+  (repeated characters) — **expected** for 259K params trained 150 steps on
+  29 examples, not a pipeline problem. `generate_corpus.py` (stories) is
+  kept for reference but is no longer the active data path.
+
+**What's next**: expand `personality_seed.txt` substantially (aim for
+hundreds to low thousands of exchanges, covering more phrasing variety per
+category) before running a real (non-smoke-test) training pass — output
+quality is entirely a function of that dataset size/quality, not the
+pipeline, which is now confirmed working for this format.
+
 ## Next steps (Phase 2+)
 
 - **Phase 2** (needs the physical N16R8 board): port `run.c`/`runq.c` to
