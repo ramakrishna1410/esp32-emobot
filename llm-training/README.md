@@ -107,11 +107,51 @@ short reactive EmoBot dialogue, not narrated stories. Changed:
   29 examples, not a pipeline problem. `generate_corpus.py` (stories) is
   kept for reference but is no longer the active data path.
 
-**What's next**: expand `personality_seed.txt` substantially (aim for
-hundreds to low thousands of exchanges, covering more phrasing variety per
-category) before running a real (non-smoke-test) training pass — output
-quality is entirely a function of that dataset size/quality, not the
-pipeline, which is now confirmed working for this format.
+## Dataset augmentation + v3 training run (2026-09-24)
+
+Expanded `personality_seed.txt` from 29 to **80 hand-authored exchanges**
+across 8 categories. Trained on it directly (600 steps): **still
+degenerate output** (`"I'm siting, the with ammmaiting."`) — train loss
+dropped to 0.60 but val loss *rose* to 4.79, classic overfitting. 80
+examples isn't enough data for even a 259K-param model to generalize.
+
+**Fix**: `scripts/build_conversational_corpus.py` now does **within-category
+cross-pairing augmentation** — for each authored user trigger, it pairs the
+original bot response *plus* 3 other bot responses from the same category
+(all real, user-authored lines; no invented content). 80 exchanges →
+**320 augmented exchanges**. Categories are semantically coherent (any
+greeting response is plausible for any greeting trigger), so this is honest
+data multiplication, not hallucination.
+
+Retrained (2000 steps, same `stories260K` architecture): **val loss dropped
+to 1.06** (best checkpoint at step 600, vs. 4.0+ before). Greedy (`-t 0.0`)
+generation now produces **fluent, correct, complete responses** matching
+the right category, e.g. prompting `"User: The house is empty but
+something's still on.\nBot:"` correctly generates *"Just flagging,
+something's drawing power in an empty room. Might be..."* — a real,
+coherent, in-character completion.
+
+**Important honest caveat found via sampling**: train loss bottomed out at
+**0.018** — with only 320 examples (from 80 unique lines) and a 259K-param
+model, this is functionally closer to memorization than generalization.
+Greedy decoding reliably retrieves the correct memorized response. But
+**temperature-sampled decoding (the "natural variation" mode) can retrieve
+a response from the WRONG category** — e.g. `"I feel sad today"` at
+`-t 0.7` returned a mood_happy line. At this data scale, the model behaves
+more like a fuzzy lookup table than a system with real semantic
+understanding of category boundaries.
+
+**Practical implication for Phase 5 firmware integration**: use greedy/
+low-temperature decoding for reliability until the dataset grows well
+beyond 320 augmented (80 authored) exchanges — sampling for "naturalness"
+currently trades away category correctness. More real authored content
+(not just more augmentation of the same 80 lines) is what will eventually
+let both work together.
+
+**What's next**: keep growing `personality_seed.txt` with genuinely new
+authored exchanges (not just relying on cross-pairing augmentation of the
+same base content) — that's what actually teaches the model category
+boundaries instead of just multiplying phrasing of the same 80 ideas.
 
 ## Next steps (Phase 2+)
 
